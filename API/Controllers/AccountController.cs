@@ -14,7 +14,7 @@ namespace API.Controllers
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class AccountController:ControllerBase
+    public class AccountController : ControllerBase
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
@@ -29,7 +29,7 @@ namespace API.Controllers
             _userManager = userManager;
             _roleManager = roleManager;
             _configuration = configuration;
-            
+
         }
 
         // api/account/register
@@ -38,38 +38,43 @@ namespace API.Controllers
         [HttpPost("register")]
         public async Task<ActionResult<string>> Register(RegisterDto registerDto)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var user = new AppUser{
+            var user = new AppUser
+            {
                 Email = registerDto.Email,
                 FullName = registerDto.FullName,
                 UserName = registerDto.Email
             };
 
-            var result = await _userManager.CreateAsync(user,registerDto.Password);
+            var result = await _userManager.CreateAsync(user, registerDto.Password);
 
-            if(!result.Succeeded)
+            if (!result.Succeeded)
             {
                 return BadRequest(result.Errors);
             }
-            
-            if(registerDto.Roles is null){
-                    await _userManager.AddToRoleAsync(user,"User");
-            }else{
-                foreach(var role in registerDto.Roles)
+
+            if (registerDto.Roles is null)
+            {
+                await _userManager.AddToRoleAsync(user, "User");
+            }
+            else
+            {
+                foreach (var role in registerDto.Roles)
                 {
-                    await _userManager.AddToRoleAsync(user,role);
+                    await _userManager.AddToRoleAsync(user, role);
                 }
             }
-    
 
-        return Ok(new AuthResponseDto{
-            IsSuccess = true,
-            Message = "Account Created Sucessfully!"
-        });
+
+            return Ok(new AuthResponseDto
+            {
+                IsSuccess = true,
+                Message = "Account Created Sucessfully!"
+            });
 
         }
 
@@ -79,34 +84,38 @@ namespace API.Controllers
 
         public async Task<ActionResult<AuthResponseDto>> Login(LoginDto loginDto)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-               return BadRequest(ModelState);
+                return BadRequest(ModelState);
             }
 
             var user = await _userManager.FindByEmailAsync(loginDto.Email);
 
-            if(user is null)
+            if (user is null)
             {
-                return Unauthorized(new AuthResponseDto{
+                return Unauthorized(new AuthResponseDto
+                {
                     IsSuccess = false,
                     Message = "User not found with this email",
                 });
             }
 
-            var result = await _userManager.CheckPasswordAsync(user,loginDto.Password);
+            var result = await _userManager.CheckPasswordAsync(user, loginDto.Password);
 
-            if(!result){
-                return Unauthorized(new AuthResponseDto{
-                    IsSuccess=false,
-                    Message= "Invalid Password."
+            if (!result)
+            {
+                return Unauthorized(new AuthResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Invalid Password."
                 });
             }
 
-            
+
             var token = GenerateToken(user);
 
-            return Ok(new AuthResponseDto{
+            return Ok(new AuthResponseDto
+            {
                 Token = token,
                 IsSuccess = true,
                 Message = "Login Success."
@@ -116,15 +125,16 @@ namespace API.Controllers
         }
 
 
-        private string GenerateToken(AppUser user){
+        private string GenerateToken(AppUser user)
+        {
             var tokenHandler = new JwtSecurityTokenHandler();
-            
+
             var key = Encoding.ASCII
             .GetBytes(_configuration.GetSection("JWTSetting").GetSection("securityKey").Value!);
 
             var roles = _userManager.GetRolesAsync(user).Result;
 
-            List<Claim> claims = 
+            List<Claim> claims =
             [
                 new (JwtRegisteredClaimNames.Email,user.Email??""),
                 new (JwtRegisteredClaimNames.Name,user.FullName??""),
@@ -135,10 +145,10 @@ namespace API.Controllers
             ];
 
 
-            foreach(var role in roles)
+            foreach (var role in roles)
 
             {
-                claims.Add(new Claim(ClaimTypes.Role,role));
+                claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -152,10 +162,10 @@ namespace API.Controllers
             };
 
 
-            var token  = tokenHandler.CreateToken(tokenDescriptor);
+            var token = tokenHandler.CreateToken(tokenDescriptor);
 
             return tokenHandler.WriteToken(token);
-           
+
 
         }
 
@@ -167,19 +177,21 @@ namespace API.Controllers
             var user = await _userManager.FindByIdAsync(currentUserId!);
 
 
-            if(user is null)
+            if (user is null)
             {
-                return NotFound(new AuthResponseDto{
+                return NotFound(new AuthResponseDto
+                {
                     IsSuccess = false,
                     Message = "User not found"
                 });
             }
 
-            return Ok(new UserDetailDto{
+            return Ok(new UserDetailDto
+            {
                 Id = user.Id,
                 Email = user.Email,
                 FullName = user.FullName,
-                Roles = [..await _userManager.GetRolesAsync(user)],
+                Roles = [.. await _userManager.GetRolesAsync(user)],
                 PhoneNumber = user.PhoneNumber,
                 PhoneNumberConfirmed = user.PhoneNumberConfirmed,
                 AccessFailedCount = user.AccessFailedCount,
@@ -192,11 +204,12 @@ namespace API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDetailDto>>> GetUsers()
         {
-            var users = await _userManager.Users.Select(u=> new UserDetailDto{
+            var users = await _userManager.Users.Select(u => new UserDetailDto
+            {
                 Id = u.Id,
-                Email=u.Email,
-                FullName=u.FullName,
-                Roles=_userManager.GetRolesAsync(u).Result.ToArray()
+                Email = u.Email,
+                FullName = u.FullName,
+                Roles = _userManager.GetRolesAsync(u).Result.ToArray()
             }).ToListAsync();
 
             return Ok(users);
